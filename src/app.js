@@ -3,15 +3,11 @@ const { DbConnect } = require("./config/database");
 const app = express();
 const user = require("./models/user");
 
-const { auth } = require("./middlewares/auth");
+app.use(express.json());
 
 app.post("/signup", async (req, res) => {
-  const User = new user({
-    firstName: "Rajesh",
-    lastName: "Jami",
-    emailId: "raj@gmail.com",
-    password: "raj@jami",
-  });
+    //creating a new instance of the user model
+  const User = new user(req.body);
 
   try {
     await User.save();
@@ -22,9 +18,49 @@ app.post("/signup", async (req, res) => {
   }
 });
 
+app.get("/user", async (req, res)=>{
+    const userEmail = req.body.emailId;
+try{ 
+     const fetchedUser = await user.find({emailId: userEmail})
+     if(fetchedUser.length === 0){
+        res.status(400).send('user not found')
+     }else{
+ res.send(fetchedUser)
+     }
+    
+
+}catch(err){
+    res.status(400).send('user not fetched')
+}
+
+});
+
+// get/feed get all user api
+app.get('/feed', async(req, res)=>{
+
+    try{
+        const fetchedUser = await user.find({});
+        res.send(fetchedUser)
+    }catch(err){
+    res.status(400).send('user not fetched')
+}
+});
+
+// delete api
+app.delete('/user', async(req, res)=>{
+    const userId = req.body.userId;
+    try{
+        const  getUsertoDelete = await user.findByIdAndDelete({_id: userId});
+        res.send('user deleted')
+    }catch(err){
+    res.status(400).send('user not fetched')
+}
+});
+
+
 DbConnect()
   .then(() => {
-    console.log("connection established successfull");
+    console.log("DB connection established successfull");
     app.listen(7777, () => {
       console.log("listening on 7777");
     });
