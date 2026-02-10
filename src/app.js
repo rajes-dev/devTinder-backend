@@ -61,10 +61,13 @@ app.patch('/user', async(req, res)=>{
     const userId = req.body.userId
     const data = req.body
     try{
-        await user.findByIdAndUpdate({_id: userId}, data);
+        await user.findByIdAndUpdate({_id: userId}, data,{
+          returnDocument: "after",
+          runValidators: true, 
+        });
         res.send('user updated successfully')
     }catch(err){
-    res.status(400).send('user not fetched')
+    res.status(400).send('update failed' + err.message)
 }
 })
 
