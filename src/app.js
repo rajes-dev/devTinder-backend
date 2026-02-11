@@ -4,8 +4,12 @@ const app = express();
 const user = require("./models/user");
 const {validateSignupData} = require("./utils/validation")
 const bcrypt = require("bcrypt");
+const cookieParser = require("cookie-parser");
+// const jwt = require('jsonwebtoken');
+const { userAuth } = require("./middlewares/auth");
 
 app.use(express.json());
+app.use(cookieParser());
 
 app.post("/signup", async (req, res) => {
    try {
@@ -34,82 +38,40 @@ app.post("/login", async (req,res)=>{
    const {emailId, password} = req.body;
 
    const foundUser = await user.findOne({emailId: emailId});
+
    if(!foundUser){
     throw new Error('Invalid creds1')
    }
-   const isPasswordvalid = await bcrypt.compare(password, foundUser.password);
+   const isPasswordvalid = await foundUser.validatePassword(password); 
 
    if(isPasswordvalid){
-    res.send('Login success!!'); 
+    //create a JWT token
+    const token = await foundUser.getJWT();
+
+    //add the token to cookie and send response to user
+    res.cookie("token", token,{
+      expires: new Date(Date.now() + 8* 3600000),
+    });
+    res.send('Login success!!');
    }else{
     throw new Error('Invalid creds2'); 
-   }
+   };
   }catch(err){
+    console.log(err)
     res.status(400).send('Invalid Credentials'+ err)
 }
 })
 
-app.get("/user", async (req, res)=>{
-    const userEmail = req.body.emailId;
-try{ 
-     const fetchedUser = await user.find({emailId: userEmail})
-     if(fetchedUser.length === 0){
-        res.status(400).send('user not found')
-     }else{
- res.send(fetchedUser)
-     }
-    
-
-}catch(err){
+app.get("/profile", userAuth, async(req, res)=>{
+  
+   try{
+  const userProfile = req.user;
+    res.send('cookie sent : '+ userProfile)
+   }catch(err){
     res.status(400).send('user not fetched')
-}
-
-});
-
-// get/feed get all user api
-app.get('/feed', async(req, res)=>{
-
-    try{
-        const fetchedUser = await user.find({});
-        res.send(fetchedUser)
-    }catch(err){
-    res.status(400).send('user not fetched')
-}
-});
-
-// delete api
-app.delete('/user', async(req, res)=>{
-    const userId = req.body.userId;
-    try{
-        const  getUsertoDelete = await user.findByIdAndDelete({_id: userId});
-        res.send('user deleted')
-    }catch(err){
-    res.status(400).send('user not fetched')
-}
-});
-
-app.patch('/user/:userId', async(req, res)=>{
-    const userId = req.params?.userId
-    const data = req.body
-    try{
-      const allowedUpdates = ['age', 'photoUrl', 'about', 'skills'];
-
-      const isUpdateAllowed = Object.keys(data).every((k) => allowedUpdates.includes(k));
-      if(!isUpdateAllowed){
-        throw new Error('update not allowed')
-      }
-      if(data.skills.length > 10){
-        throw new Error('max skills allowed 10')
-      }
-        await user.findByIdAndUpdate({_id: userId}, data,{
-          returnDocument: "after",
-          runValidators: true, 
-        }); 
-        res.send('user updated successfully')
-    }catch(err){
-    res.status(400).send('update failed ' + err.message)
-}
+};
 })
+
 
 DbConnect()
   .then(() => {
